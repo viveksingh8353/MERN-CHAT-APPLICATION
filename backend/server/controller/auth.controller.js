@@ -2,39 +2,42 @@ import User from '../model/user.model.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
+// 🔐 Helper to create JWT
 const createToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
     expiresIn: '7d',
   });
 };
 
+// 📥 Register User
 export const registerUser = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { name, email, password } = req.body;
 
-    if (!username || !email || !password) {
-      return res.status(400).json({ msg: 'All fields are required' });
-    }
-
+    // Check existing user
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ msg: 'Email already registered' });
     }
 
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Create user
     const newUser = await User.create({
-      username,
+      name,
       email,
       password: hashedPassword,
     });
 
+    // Create token
     const token = createToken(newUser._id);
 
+    // Send response
     res.status(201).json({
       user: {
         _id: newUser._id,
-        username: newUser.username,
+        name: newUser.name,
         email: newUser.email,
       },
       token,
@@ -45,23 +48,26 @@ export const registerUser = async (req, res) => {
   }
 };
 
-
+// 🔓 Login User
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // Check if user exists
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ msg: 'User not found' });
 
+    // Check password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ msg: 'Invalid credentials' });
 
+    // Create token
     const token = createToken(user._id);
 
     res.status(200).json({
       user: {
         _id: user._id,
-        username: user.username,
+        name: user.name,
         email: user.email,
       },
       token,
